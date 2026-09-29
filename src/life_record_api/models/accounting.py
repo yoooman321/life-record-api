@@ -3,12 +3,18 @@ from enum import Enum
 from datetime import date, datetime, timezone
 
 
+class CalcMethod(str, Enum):
+    count = "count"
+    amount = "amount"
+
+
 class StatList(SQLModel, table=True):
     __tablename__ = "stat_list"
     # primary_keys -> unique key
     id: int | None = Field(default=None, primary_key=True)
     name: str
     color: str
+    calc_method: CalcMethod
 
 
 class IconList(SQLModel, table=True):
@@ -90,3 +96,4 @@ class RecordImages(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     image_url: str
     record_id: int = Field(foreign_key="accounting_records.id")
+    image_name: str

@@ -28,6 +28,7 @@
 - `life-record-docs/bookkeeping-slime/bookkeeping-slime.md`:記帳史萊姆產品設計文件
 - `life-record-docs/bookkeeping-slime/datatable-design.md`:資料庫設計(單一事實來源,之後異動請直接改這邊,不要兩邊維護)
 - `life-record-docs/schedule.md`:跨專案里程碑規劃 + 進度記錄(P1~P4)
+- `life-record-docs/back-TODO.md`:後端(本專案)的 TODO(2026-09-29 定案)。使用者說「幫我寫進 TODO」時,寫的是這份檔案,**不是**本專案本地的 `TODO.md`(那份已經停用,只留一行指向這裡)。使用者另外會請 `life-record-docs` 那邊整理一份跨前後端的總 TODO,那是另一件事,不影響這條規則。
 
 如果使用者開了 `life-record-docs` 的 session,可以用 `ListAgents` 找到,直接 `SendMessage` 過去溝通。
 
