@@ -7,7 +7,6 @@ from life_record_api.models.accounting import (
     TagList,
     RecordImages,
     CategoryList,
-    CalcMethod,
 )
 from life_record_api.exceptions import (
     AppException,
@@ -22,10 +21,14 @@ from life_record_api.schemas.accounting import (
 )
 from life_record_api.services.storage import upload_image
 from life_record_api.services.accounting.periods import (
-    get_growing_period_id,
-    get_period_days,
+    get_growing_period,
+    is_period_expired,
 )
-from life_record_api.services.accounting.stat_list import get_stat_info
+from life_record_api.services.accounting.stat_calculation import (
+    calculate_stat,
+    get_actual_end_date,
+    get_periods_days,
+)
 
 
 def _validate_tags_exist(session: Session, tag_ids: set[int]) -> None:
@@ -62,12 +65,12 @@ def insert_record(session: Session, data: AccountingRecordCreate):
 
     _validate_tags_exist(session, tag_ids)
 
-    period_id = get_growing_period_id(session)
+    period = get_growing_period(session)
 
     # OOO(data) -> 根據 OOO 知道是對哪個表操作
     record = AccountingRecords(
         **data.model_dump(exclude={"tags", "image"}, exclude_none=True),
-        period_id=period_id,
+        period_id=period.id if period is not None else None,
     )
     session.add(record)
     # session.flush - 先拿到 record.id, 還沒結帳
@@ -125,7 +128,7 @@ def _serialize_records(session: Session, records: list) -> list[AccountingRecord
 
 
 def read_record_by_date(
-    session: Session, data: AccountingRecordDateRange, user_id: int = 0
+    session: Session, data: AccountingRecordDateRange, user_id: int
 ) -> list[AccountingRecordRead]:
     records = session.exec(
         select(AccountingRecords, CategoryList.type.label("record_type"))
@@ -202,7 +205,7 @@ def update_record(
 def _read_record_by_growing_status(
     session: Session,
     period_id: int,
-    user_id: int = 0,
+    user_id: int,
 ) -> list[AccountingRecordRead]:
     records = session.exec(
         select(AccountingRecords, CategoryList.type.label("record_type"))
@@ -216,58 +219,22 @@ def _read_record_by_growing_status(
     return _serialize_records(session, records)
 
 
-def _get_record_by_period_id(session: Session, period_id: int, user_id):
-    records = session.exec(
-        select(AccountingRecords, CategoryList.add_stats_id)
-        .join(
-            CategoryList, AccountingRecords.category_id == CategoryList.id, isouter=True
-        )
-        .where(CategoryList.user_id == user_id)
-        .where(AccountingRecords.period_id == period_id)
-    ).all()
-
-    results = []
-    for record, add_stats_id in records:
-        results.append({**record.model_dump(), "add_stats_id": add_stats_id})
-
-    return results
-
-
 def read_current_growing_slime(
-    session: Session, user_id: int = 0
+    session: Session, user_id: int
 ) -> GrowingPeriodStatsRead | None:
-    period_id = get_growing_period_id(session, user_id)
-    if period_id is None:
+    period = get_growing_period(session, user_id)
+    if period is None:
         return None
 
-    records = _read_record_by_growing_status(session, period_id, user_id)
-    period_day_settings = get_period_days(session, period_id)
-    stat = _calculate_stat(
-        session, period_id, user_id, days=period_day_settings["days"]
-    )
+    records = _read_record_by_growing_status(session, period.id, user_id)
+    days = get_periods_days(period)
+    stat = calculate_stat(session, period.id, user_id, days)
 
     # 用 schema 包起來 => 會驗證資料格式
     return GrowingPeriodStatsRead(
         records=records,
         stats=stat,
-        started_at=period_day_settings["started_at"],
-        ended_at=period_day_settings["ended_at"],
+        started_at=period.started_at,
+        ended_at=get_actual_end_date(period),
+        need_complete=is_period_expired(period),
     )
-
-
-def _calculate_stat(session: Session, period_id: int, user_id, days: int):
-    records = _get_record_by_period_id(session, period_id, user_id)
-    stat_mapping = get_stat_info(session, days)
-    stat_summary = {key: 0 for key in stat_mapping}
-    for record in records:
-        stat_id = record["add_stats_id"]
-        info = stat_mapping[stat_id]
-
-        if info["method"] == CalcMethod.count:
-            stat_summary[stat_id] = min(stat_summary[stat_id] + 1, info["max"])
-        else:
-            stat_summary[stat_id] = stat_summary[stat_id] + record["amount"]
-
-    return {
-        stat_mapping[stat_id]["name"]: value for stat_id, value in stat_summary.items()
-    }

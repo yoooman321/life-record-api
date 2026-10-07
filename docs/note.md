@@ -17,3 +17,27 @@
 這個比較少見,是 Python 真的會做「改名」處理(叫 name mangling),讓這個屬性變得比較難從 class 外面直接存取到,算是比較強的封裝手法,初學階段可以先不用管,遇到再說。
 
 你現在需要記住的重點:__init__.py(檔名)、__init__(方法名)、__tablename__ 都是格式 1——看到這種前後雙底線的名字,代表「這是 Python 或某個框架認得的特殊名稱」,不是隨便取的,要照規定的拼法寫,不能自己改名字(例如不能寫成 __table_name__,SQLAlchemy 只認 __tablename__ 這個確切拼法)。
+
+4. 循環引用(circular import)
+
+實際遇過的情境(`services/accounting/` 底下):`periods.py` 最上面 import 了 `slime.py` 的 `insert_slime`,`slime.py` 最上面又 import 了 `periods.py` 的 `get_period_days`。兩個檔案都想在「檔案最上面」拿到對方的東西,執行起來就直接噴錯:
+
+```
+ImportError: cannot import name 'get_period_days' from partially initialized module
+'life_record_api.services.accounting.periods' (most likely due to a circular import)
+```
+
+**為什麼會這樣:Python import 的實際運作方式**
+
+- 第一次 `import` 一個模組時,Python 會把這份檔案「從上到下、一行一行執行一次」。過程中每定義一個 class/函式/變數,就把它登記進這個模組的命名空間(可以想成一個字典,key 是名字,value 是對應的東西)。
+- 執行完**之前**,Python 就已經先在一個全域清單 `sys.modules` 裡,幫這個模組佔好一個位置,標記「這個模組正在載入中」。如果載入過程中又遇到 `import` 同一個模組(不管是自己重複 import,還是像上面這樣繞一圈回來),Python 不會重新執行一次這份檔案,而是直接去 `sys.modules` 拿「現在這個模組跑到哪裡」的那個版本——即使它還沒跑完。
+- 如果這時候你要的名字,剛好是在這份檔案「還沒執行到的後面幾行」才會定義出來,Python 就會找不到,丟出 `cannot import name 'X' from partially initialized module`。
+
+可以想成兩個人約好「你先給我東西,我才要給你東西」,結果兩人同時在等對方先動,誰也動不了——**關鍵不是「這兩個檔案的功能有沒有關聯」,而是「在什麼時機點」互相需要對方**。就算兩個檔案的功能八竿子打不著,只要排成一個圈互相在「檔案最上面」要對方的東西,一樣會中招;反過來,就算兩個檔案功能很緊密,只要依賴方向是單向的,就不會有事。
+
+**看 traceback 怎麼抓出是哪一圈**:錯誤訊息會列出一串 `File "...", line N, in <module>`,由上往下照著它匯入的順序走一遍,最後一行會指出「卡住的那個名字」跟「卡在哪個模組」——通常就是這圈循環裡,最後被拉回來、但還沒執行到那一行的模組。
+
+**兩種解法**:
+
+1. **延遲 import(治標)**:把 `from ... import ...` 從檔案最上面,搬到真正用到它的函式內部,讓這行 import 在「函式被呼叫的那一刻」才執行,而不是「檔案被載入的那一刻」。等到真的有人呼叫這個函式時,整個 app 早就載入完成、兩邊檔案都準備好了,所以不會卡住。缺點是兩個檔案「互相依賴」這件事本身還在,只是繞過了 Python 的檢查時機。
+2. **拆出第三個檔案,讓依賴變單向(治本)**:如果 A、B 兩個檔案會互相需要,通常代表「兩邊都要用到的那段邏輯」被放錯地方了。把這段共用邏輯抽出來,放進一個新的、誰都不需要回頭依賴的檔案(例如這個專案把 `calculate_stat` 這類兩邊共用的計算邏輯抽成 `stat_calculation.py`),讓 A、B 都去依賴這個新檔案,而不是互相依賴,整條依賴線就會變成一條不會繞回來的單行道。

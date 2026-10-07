@@ -1,8 +1,9 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, Form, Query
 from sqlmodel import Session
+from life_record_api.exceptions import AppException
 
-from life_record_api.models.accounting import AccountingRecords, IconList
+from life_record_api.models.accounting import AccountingRecords, IconList, Slimes
 from life_record_api.db.session import get_session
 from life_record_api.schemas.accounting import (
     AccountingRecordCreate,
@@ -16,6 +17,7 @@ from life_record_api.schemas.accounting import (
     PeriodRead,
     GrowingPeriodStatsRead,
     StatRead,
+    SlimeEdit,
 )
 
 from life_record_api.services.accounting.icon import get_icon_list
@@ -29,13 +31,14 @@ from life_record_api.services.accounting.records import (
 )
 from life_record_api.services.accounting.periods import (
     insert_period,
-    end_growing_period,
+    get_growing_period,
 )
 
 from life_record_api.services.accounting.stat_list import (
     get_stat_list,
 )
 
+from life_record_api.services.accounting.slime import insert_slime, update_slime
 
 router = APIRouter(prefix="/accounting", tags=["accounting"])
 
@@ -104,12 +107,23 @@ def create_period(data: PeriodsCreate, session: Session = Depends(get_session)):
     return insert_period(session, data)
 
 
-@router.put("/period/current/end", response_model=PeriodRead)
+@router.put("/period/current/end", response_model=Slimes)
 def end_current_period(session: Session = Depends(get_session)):
-    return end_growing_period(session)
+    period = get_growing_period(session)
+    if period is None:
+        raise AppException(
+            status_code=404, error_code="E01002", detail="目前沒有正在培育的史萊姆"
+        )
+    return insert_slime(session, period)
 
 
 # stat
 @router.get("/stat", response_model=list[StatRead])
 def list_stat_list(session: Session = Depends(get_session)):
     return get_stat_list(session)
+
+
+# slime
+@router.put("/slime", response_model=Slimes)
+def edit_slime(data: SlimeEdit, session: Session = Depends(get_session)):
+    return update_slime(session, data)

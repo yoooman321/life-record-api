@@ -87,9 +87,25 @@ class GrowingPeriodStatsRead(SQLModel):
     stats: dict[str, int]
     started_at: datetime
     ended_at: datetime
+    need_complete: bool
 
 
 class StatRead(SQLModel):
     id: int
     name: str
     color: str
+
+
+class PeriodWithStatus(SQLModel):
+    id: int
+    duration_type: DurationType
+    started_at: datetime
+    planned_end_at: datetime
+    actual_end_at: datetime | None
+    status: PeriodStatus
+    need_complete: bool
+
+
+class SlimeEdit(SQLModel):
+    id: int
+    name: str

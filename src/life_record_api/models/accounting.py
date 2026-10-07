@@ -35,14 +35,14 @@ class CategoryList(SQLModel, table=True):
     name: str
     icon_id: int = Field(foreign_key="icon_list.id")
     add_stats_id: int = Field(foreign_key="stat_list.id")
-    user_id: int = Field(default=0)
+    user_id: int = Field(foreign_key="users.id")
     type: RecordType
 
 
 class AccountingRecords(SQLModel, table=True):
     __tablename__ = "accounting_records"
     id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(default=0)
+    user_id: int = Field(foreign_key="users.id")
     category_id: int = Field(foreign_key="category_list.id")
     amount: int
     note: str | None = Field(default=None)
@@ -68,7 +68,7 @@ class PeriodStatus(str, Enum):
 class Periods(SQLModel, table=True):
     __tablename__ = "periods"
     id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(default=0)
+    user_id: int = Field(foreign_key="users.id")
     duration_type: DurationType
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     planned_end_at: datetime
@@ -81,7 +81,7 @@ class TagList(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     color: str
-    user_id: int = Field(default=0)
+    user_id: int = Field(foreign_key="users.id")
 
 
 class RecordTags(SQLModel, table=True):
@@ -97,3 +97,27 @@ class RecordImages(SQLModel, table=True):
     image_url: str
     record_id: int = Field(foreign_key="accounting_records.id")
     image_name: str
+
+
+class ProfessionType(str, Enum):
+    warrior = "warrior"
+    bowman = "bowman"
+    thief = "thief"
+    wizard = "wizard"
+    paladin = "paladin"
+
+
+class Slimes(SQLModel, table=True):
+    __tablename__ = "slimes"
+    id: int | None = Field(default=None, primary_key=True)
+    period_id: int = Field(foreign_key="periods.id")
+    user_id: int = Field(foreign_key="users.id")
+    power: int
+    agility: int
+    luck: int
+    intelligence: int
+    stamina: int
+    wealth: int
+    profession: ProfessionType
+    name: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

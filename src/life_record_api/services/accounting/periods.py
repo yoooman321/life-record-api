@@ -27,18 +27,7 @@ def _validate_duration(data: PeriodsCreate) -> None:
         raise AppException(status_code=422, error_code="E01005", detail="時間少了日期")
 
 
-def _complete_if_expired(session: Session, period: Periods) -> Periods:
-    now = datetime.now(timezone.utc)
-    if now >= period.planned_end_at:
-        period.actual_end_at = period.planned_end_at
-        period.status = PeriodStatus.completed
-        session.add(period)
-        session.commit()
-        session.refresh(period)
-    return period
-
-
-def get_growing_period_id(session: Session, user_id: int = 0) -> int | None:
+def get_growing_period(session: Session, user_id: int) -> Periods | None:
     statement = (
         select(Periods)
         .where(Periods.user_id == user_id)
@@ -46,26 +35,25 @@ def get_growing_period_id(session: Session, user_id: int = 0) -> int | None:
     )
     period = session.exec(statement).first()
 
-    if period is None:
-        return None
-
-    period = _complete_if_expired(session, period)
-
-    if period.status != PeriodStatus.growing:
-        return None
-
-    return period.id
+    return period
 
 
-def _validate_growing_status_exist(session: Session, user_id: int = 0) -> None:
-    period_id = get_growing_period_id(session, user_id)
-    if period_id is not None:
+def is_period_expired(period: Periods) -> bool:
+    return (
+        period.actual_end_at is None
+        and datetime.now(timezone.utc) >= period.planned_end_at
+    )
+
+
+def _validate_growing_status_exist(session: Session, user_id: int) -> None:
+    period = get_growing_period(session, user_id)
+    if period is not None:
         raise AppException(
             status_code=409, error_code="E01006", detail="已有存在的史萊姆"
         )
 
 
-def insert_period(session: Session, data: PeriodsCreate, user_id: int = 0) -> Periods:
+def insert_period(session: Session, data: PeriodsCreate, user_id: int) -> Periods:
     _validate_duration(data)
     _validate_growing_status_exist(session, user_id)
 
@@ -84,35 +72,3 @@ def insert_period(session: Session, data: PeriodsCreate, user_id: int = 0) -> Pe
     session.commit()
     session.refresh(period)
     return period
-
-
-def end_growing_period(session: Session, user_id: int = 0) -> Periods:
-    period_id = get_growing_period_id(session, user_id)
-
-    if period_id is None:
-        raise AppException(
-            status_code=404, error_code="E01002", detail="目前沒有正在培育的史萊姆"
-        )
-    period = session.get(Periods, period_id)
-    period.actual_end_at = datetime.now(timezone.utc)
-    period.status = PeriodStatus.completed
-
-    session.add(period)
-    session.commit()
-    session.refresh(period)
-    return period
-
-
-def get_period_days(session: Session, period_id: int):
-    statement = select(Periods).where(Periods.id == period_id)
-    period = session.exec(statement).first()
-    end_at = (
-        period.actual_end_at
-        if period.actual_end_at is not None
-        else period.planned_end_at
-    )
-    return {
-        "started_at": period.started_at,
-        "ended_at": end_at,
-        "days": (end_at - period.started_at).days,
-    }
