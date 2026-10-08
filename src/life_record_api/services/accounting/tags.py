@@ -9,8 +9,8 @@ def get_tag_list(session: Session, user_id: int) -> list[TagList]:
     return session.exec(statement).all()
 
 
-def insert_tag(session: Session, data: TagCreate) -> TagList:
-    tag = TagList(**data.model_dump(), user_id=0)
+def insert_tag(session: Session, data: TagCreate, user_id: int) -> TagList:
+    tag = TagList(**data.model_dump(), user_id=user_id)
     session.add(tag)
     session.commit()
     session.refresh(tag)

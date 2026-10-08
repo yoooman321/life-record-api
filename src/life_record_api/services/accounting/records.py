@@ -29,6 +29,7 @@ from life_record_api.services.accounting.stat_calculation import (
     get_actual_end_date,
     get_periods_days,
 )
+from life_record_api.services.accounting.category import validate_category_by_user_id
 
 
 def _validate_tags_exist(session: Session, tag_ids: set[int]) -> None:
@@ -60,17 +61,19 @@ def _attach_image(session: Session, record_id: int, image: UploadFile | None) ->
         )
 
 
-def insert_record(session: Session, data: AccountingRecordCreate):
+def insert_record(session: Session, data: AccountingRecordCreate, user_id: int):
     tag_ids = set(data.tags)
 
     _validate_tags_exist(session, tag_ids)
+    validate_category_by_user_id(session, user_id, data.category_id)
 
-    period = get_growing_period(session)
+    period = get_growing_period(session, user_id)
 
     # OOO(data) -> 根據 OOO 知道是對哪個表操作
     record = AccountingRecords(
         **data.model_dump(exclude={"tags", "image"}, exclude_none=True),
         period_id=period.id if period is not None else None,
+        user_id=user_id,
     )
     session.add(record)
     # session.flush - 先拿到 record.id, 還沒結帳
@@ -135,7 +138,7 @@ def read_record_by_date(
         .join(
             CategoryList, AccountingRecords.category_id == CategoryList.id, isouter=True
         )
-        .where(CategoryList.user_id == user_id)
+        .where(AccountingRecords.user_id == user_id)
         .where(AccountingRecords.expended_at <= data.ended_at)
         .where(AccountingRecords.expended_at >= data.started_at)
     ).all()
@@ -165,12 +168,12 @@ def _replace_image(session: Session, record_id: int, image: UploadFile | None) -
 
 
 def update_record(
-    session: Session, record_id: int, data: AccountingRecordUpdate
+    session: Session, record_id: int, data: AccountingRecordUpdate, user_id: int
 ) -> AccountingRecords:
     # 撈單一一筆，用主鍵查 最簡潔的寫法
     record = session.get(AccountingRecords, record_id)
 
-    if record is None:
+    if record is None or record.user_id != user_id:
         raise AppException(
             status_code=404, error_code="E01003", detail="找不到這筆紀錄"
         )
@@ -212,7 +215,7 @@ def _read_record_by_growing_status(
         .join(
             CategoryList, AccountingRecords.category_id == CategoryList.id, isouter=True
         )
-        .where(CategoryList.user_id == user_id)
+        .where(AccountingRecords.user_id == user_id)
         .where(AccountingRecords.period_id == period_id)
     ).all()
 

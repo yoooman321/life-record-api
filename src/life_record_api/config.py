@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
 
     bucket_name: str
+    secret_key: str
 
 
 settings = Settings()
