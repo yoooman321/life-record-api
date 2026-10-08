@@ -73,9 +73,9 @@ def insert_slime(session: Session, period: Periods, user_id: int) -> Slimes | No
     return slime
 
 
-def update_slime(session: Session, data: SlimeEdit) -> Slimes:
+def update_slime(session: Session, data: SlimeEdit, user_id: int) -> Slimes:
     slime = session.get(Slimes, data.id)
-    if slime is None:
+    if slime is None or slime.user_id != user_id:
         raise AppException(
             status_code=404, error_code="E01007", detail="找不到這隻史萊姆"
         )

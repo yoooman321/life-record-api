@@ -14,7 +14,7 @@ def _get_records_with_stats(session: Session, period_id: int, user_id) -> list[d
         .join(
             CategoryList, AccountingRecords.category_id == CategoryList.id, isouter=True
         )
-        .where(CategoryList.user_id == user_id)
+        .where(AccountingRecords.user_id == user_id)
         .where(AccountingRecords.period_id == period_id)
     ).all()
 

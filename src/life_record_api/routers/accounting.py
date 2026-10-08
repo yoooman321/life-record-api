@@ -37,10 +37,13 @@ from life_record_api.services.accounting.periods import (
 from life_record_api.services.accounting.stat_list import (
     get_stat_list,
 )
+from life_record_api.services.users import get_current_user
 
 from life_record_api.services.accounting.slime import insert_slime, update_slime
 
-router = APIRouter(prefix="/accounting", tags=["accounting"])
+router = APIRouter(
+    prefix="/accounting", tags=["accounting"], dependencies=[Depends(get_current_user)]
+)
 
 
 # record
@@ -50,23 +53,25 @@ def create_record(
     # Annotated: 在原本的型別上，多附上一些額外資訊，但型別本身不變
     data: Annotated[AccountingRecordCreate, Form()],
     session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
 ):
-    return insert_record(session, data)
+    return insert_record(session, data, user_id)
 
 
 @router.get("/records", response_model=list[AccountingRecordRead])
 def list_records(
     data: Annotated[AccountingRecordDateRange, Query()],
     session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
 ):
-    return read_record_by_date(session, data)
+    return read_record_by_date(session, data, user_id)
 
 
 @router.get("/records/current-period", response_model=GrowingPeriodStatsRead | None)
 def list_current_period_records(
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session), user_id: int = Depends(get_current_user)
 ):
-    return read_current_growing_slime(session)
+    return read_current_growing_slime(session, user_id)
 
 
 @router.put("/record/{record_id}", response_model=AccountingRecords)
@@ -74,8 +79,9 @@ def edit_records(
     record_id: int,
     data: Annotated[AccountingRecordUpdate, Form()],
     session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
 ):
-    return update_record(session, record_id, data)
+    return update_record(session, record_id, data, user_id)
 
 
 # icon
@@ -86,35 +92,49 @@ def list_icons(session: Session = Depends(get_session)):
 
 # category
 @router.get("/categories", response_model=list[CategoryRead])
-def list_categories(session: Session = Depends(get_session)):
-    return get_category_list(session)
+def list_categories(
+    session: Session = Depends(get_session), user_id: int = Depends(get_current_user)
+):
+    return get_category_list(session, user_id)
 
 
 # tags
 @router.get("/tags", response_model=list[TagRead])
-def list_tags(session: Session = Depends(get_session)):
-    return get_tag_list(session)
+def list_tags(
+    session: Session = Depends(get_session), user_id: int = Depends(get_current_user)
+):
+    return get_tag_list(session, user_id)
 
 
 @router.post("/tags", response_model=TagRead)
-def create_tag(data: TagCreate, session: Session = Depends(get_session)):
-    return insert_tag(session, data)
+def create_tag(
+    data: TagCreate,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
+):
+    return insert_tag(session, data, user_id)
 
 
 # period
 @router.post("/period", response_model=PeriodRead)
-def create_period(data: PeriodsCreate, session: Session = Depends(get_session)):
-    return insert_period(session, data)
+def create_period(
+    data: PeriodsCreate,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
+):
+    return insert_period(session, data, user_id)
 
 
 @router.put("/period/current/end", response_model=Slimes)
-def end_current_period(session: Session = Depends(get_session)):
-    period = get_growing_period(session)
+def end_current_period(
+    session: Session = Depends(get_session), user_id: int = Depends(get_current_user)
+):
+    period = get_growing_period(session, user_id)
     if period is None:
         raise AppException(
             status_code=404, error_code="E01002", detail="目前沒有正在培育的史萊姆"
         )
-    return insert_slime(session, period)
+    return insert_slime(session, period, user_id)
 
 
 # stat
@@ -125,5 +145,9 @@ def list_stat_list(session: Session = Depends(get_session)):
 
 # slime
 @router.put("/slime", response_model=Slimes)
-def edit_slime(data: SlimeEdit, session: Session = Depends(get_session)):
-    return update_slime(session, data)
+def edit_slime(
+    data: SlimeEdit,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
+):
+    return update_slime(session, data, user_id)

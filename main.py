@@ -10,6 +10,7 @@ from life_record_api.exceptions import (
 )
 from life_record_api.responses import EnvelopeJSONResponse
 from life_record_api.routers.accounting import router as accounting_router
+from life_record_api.routers.user import router as user_router
 
 app = FastAPI(default_response_class=EnvelopeJSONResponse)
 app.add_middleware(
@@ -22,6 +23,7 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(AppException, app_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.include_router(accounting_router)
+app.include_router(user_router)
 
 
 @app.get("/")
