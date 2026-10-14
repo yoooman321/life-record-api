@@ -28,6 +28,7 @@ from life_record_api.services.accounting.records import (
     read_record_by_date,
     update_record,
     read_current_growing_slime,
+    remove_record,
 )
 from life_record_api.services.accounting.periods import (
     insert_period,
@@ -82,6 +83,15 @@ def edit_records(
     user_id: int = Depends(get_current_user),
 ):
     return update_record(session, record_id, data, user_id)
+
+
+@router.delete("/record/{record_id}", response_model=None)
+def delete_record(
+    record_id: int,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
+):
+    return remove_record(session, user_id, record_id)
 
 
 # icon

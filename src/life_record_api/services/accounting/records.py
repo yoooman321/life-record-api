@@ -241,3 +241,21 @@ def read_current_growing_slime(
         ended_at=get_actual_end_date(period),
         need_complete=is_period_expired(period),
     )
+
+
+def remove_record(session: Session, user_id: int, record_id: int) -> None:
+    record = session.exec(
+        select(AccountingRecords)
+        .where(AccountingRecords.id == record_id)
+        .where(AccountingRecords.user_id == user_id)
+    ).first()
+
+    if record is None:
+        raise AppException(
+            status_code=404, error_code="E01003", detail="找不到這筆紀錄"
+        )
+
+    _replace_tags(session, record_id, set())
+    _replace_image(session, record_id, None)
+    session.delete(record)
+    session.commit()
