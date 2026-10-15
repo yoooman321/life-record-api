@@ -41,3 +41,21 @@ ImportError: cannot import name 'get_period_days' from partially initialized mod
 
 1. **延遲 import(治標)**:把 `from ... import ...` 從檔案最上面,搬到真正用到它的函式內部,讓這行 import 在「函式被呼叫的那一刻」才執行,而不是「檔案被載入的那一刻」。等到真的有人呼叫這個函式時,整個 app 早就載入完成、兩邊檔案都準備好了,所以不會卡住。缺點是兩個檔案「互相依賴」這件事本身還在,只是繞過了 Python 的檢查時機。
 2. **拆出第三個檔案,讓依賴變單向(治本)**:如果 A、B 兩個檔案會互相需要,通常代表「兩邊都要用到的那段邏輯」被放錯地方了。把這段共用邏輯抽出來,放進一個新的、誰都不需要回頭依賴的檔案(例如這個專案把 `calculate_stat` 這類兩邊共用的計算邏輯抽成 `stat_calculation.py`),讓 A、B 都去依賴這個新檔案,而不是互相依賴,整條依賴線就會變成一條不會繞回來的單行道。
+
+
+dict: 一個可以隨便貼標籤的箱子
+data = {"name": "食物", "icon_id": 1}
+Python 內建的「key → value」對應關係,沒有任何固定格式
+data["name"]
+
+
+物件(object):「照著固定表格填出來的一份文件」 (class 的實例)
+class CategoryCreate(SQLModel):
+    name: str
+    icon_id: int
+    add_stats_id: int
+    type: str
+
+class 的定義,就是先畫好一張固定格式的表格——「這個東西一定要有 name(字串)、icon_id(整數)、add_stats_id(整數)、type(字串)這四個欄位,缺一個不行,型別錯了也不行」
+
+data = CategoryCreate(name="食物", icon_id=1, add_stats_id=1, type="expense")
