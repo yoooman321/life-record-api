@@ -1,5 +1,7 @@
 # life-record-api
 
+@AGENTS-english.md
+
 後端 API,搭配前端主專案 `life-record` 使用。此檔案內容整理自與前端 session 的討論摘要(2026-09-17),供接續開發參考。
 
 ## 整體產品願景
