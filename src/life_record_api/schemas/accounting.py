@@ -30,15 +30,22 @@ class ImageRead(SQLModel):
     name: str
 
 
+class CategoryInfo(SQLModel):
+    id: int
+    name: str
+    icon_id: int
+    color: str | None = None
+    type: RecordType
+
+
 class AccountingRecordRead(SQLModel):
     id: int
-    category_id: int
     amount: int
     note: str | None = None
     expended_at: date
     tags: list[int] = []
     image: ImageRead | None = None
-    record_type: RecordType
+    category: CategoryInfo
 
 
 class AccountingRecordDateRange(SQLModel):
