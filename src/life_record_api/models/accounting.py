@@ -37,6 +37,8 @@ class CategoryList(SQLModel, table=True):
     add_stats_id: int = Field(foreign_key="stat_list.id")
     user_id: int = Field(foreign_key="users.id")
     type: RecordType
+    sort_order: int = Field(default=0)
+    is_active: bool = Field(default=True)
 
 
 class AccountingRecords(SQLModel, table=True):

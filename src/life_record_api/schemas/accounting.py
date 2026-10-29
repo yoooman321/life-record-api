@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, Field
 from fastapi import UploadFile
 
 from life_record_api.models.accounting import RecordType, DurationType, PeriodStatus
@@ -30,15 +30,22 @@ class ImageRead(SQLModel):
     name: str
 
 
+class CategoryInfo(SQLModel):
+    id: int
+    name: str
+    icon_id: int
+    color: str | None = None
+    type: RecordType
+
+
 class AccountingRecordRead(SQLModel):
     id: int
-    category_id: int
     amount: int
     note: str | None = None
     expended_at: date
     tags: list[int] = []
     image: ImageRead | None = None
-    record_type: RecordType
+    category: CategoryInfo
 
 
 class AccountingRecordDateRange(SQLModel):
@@ -54,6 +61,7 @@ class CategoryRead(SQLModel):
     user_id: int
     type: RecordType
     color: str | None = None
+    sort_order: int
 
 
 class TagCreate(SQLModel):
@@ -109,3 +117,22 @@ class PeriodWithStatus(SQLModel):
 class SlimeEdit(SQLModel):
     id: int
     name: str
+
+
+class CategoryCreate(SQLModel):
+    name: str = Field(min_length=1)
+    icon_id: int
+    add_stats_id: int
+    type: RecordType
+
+
+class CategoryUpdate(SQLModel):
+    name: str | None = None
+    icon_id: int | None = None
+    type: RecordType | None = None
+    add_stats_id: int | None = None
+
+
+class CategoryOrderUpdate(SQLModel):
+    type: RecordType
+    category_ids: list[int]

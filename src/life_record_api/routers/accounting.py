@@ -18,16 +18,26 @@ from life_record_api.schemas.accounting import (
     GrowingPeriodStatsRead,
     StatRead,
     SlimeEdit,
+    CategoryCreate,
+    CategoryUpdate,
+    CategoryOrderUpdate,
 )
 
 from life_record_api.services.accounting.icon import get_icon_list
-from life_record_api.services.accounting.category import get_category_list
+from life_record_api.services.accounting.category import (
+    get_category_list,
+    insert_category,
+    update_category,
+    update_category_order,
+    remove_category,
+)
 from life_record_api.services.accounting.tags import get_tag_list, insert_tag
 from life_record_api.services.accounting.records import (
     insert_record,
     read_record_by_date,
     update_record,
     read_current_growing_slime,
+    remove_record,
 )
 from life_record_api.services.accounting.periods import (
     insert_period,
@@ -84,6 +94,15 @@ def edit_records(
     return update_record(session, record_id, data, user_id)
 
 
+@router.delete("/record/{record_id}", response_model=None)
+def delete_record(
+    record_id: int,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
+):
+    return remove_record(session, user_id, record_id)
+
+
 # icon
 @router.get("/icons", response_model=list[IconList])
 def list_icons(session: Session = Depends(get_session)):
@@ -96,6 +115,43 @@ def list_categories(
     session: Session = Depends(get_session), user_id: int = Depends(get_current_user)
 ):
     return get_category_list(session, user_id)
+
+
+@router.post("/category", response_model=CategoryRead)
+def create_category(
+    data: CategoryCreate,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
+):
+    return insert_category(session, user_id, data)
+
+
+@router.put("/category/{category_id}", response_model=CategoryRead)
+def edit_category(
+    data: CategoryUpdate,
+    category_id: int,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
+):
+    return update_category(session, user_id, data, category_id)
+
+
+@router.put("/categories/order", response_model=None)
+def edit_category_order(
+    data: CategoryOrderUpdate,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
+):
+    return update_category_order(session, user_id, data)
+
+
+@router.delete("/category/{category_id}", response_model=None)
+def delete_category(
+    category_id: int,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user),
+):
+    return remove_category(session, user_id, category_id)
 
 
 # tags

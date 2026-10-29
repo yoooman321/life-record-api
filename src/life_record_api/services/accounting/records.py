@@ -7,6 +7,7 @@ from life_record_api.models.accounting import (
     TagList,
     RecordImages,
     CategoryList,
+    StatList,
 )
 from life_record_api.exceptions import (
     AppException,
@@ -97,7 +98,7 @@ def _serialize_records(session: Session, records: list) -> list[AccountingRecord
     #     record = row[0]
     #     record_type = row.record_type
 
-    records_ids = [record.id for record, record_type in records]
+    records_ids = [record.id for record, _, _, _, _ in records]
 
     tags = session.exec(
         select(RecordTags).where(RecordTags.record_id.in_(records_ids))
@@ -118,13 +119,19 @@ def _serialize_records(session: Session, records: list) -> list[AccountingRecord
         image_map[row.record_id] = {"url": row.image_url, "name": row.image_name}
 
     result = []
-    for record, record_type in records:
+    for record, record_type, name, icon_id, color in records:
         result.append(
             {
-                **record.model_dump(),
+                **record.model_dump(exclude={"category_id"}),
                 "tags": tag_map.get(record.id, []),
                 "image": image_map.get(record.id),
-                "record_type": record_type,
+                "category": {
+                    "type": record_type,
+                    "icon_id": icon_id,
+                    "name": name,
+                    "color": color,
+                    "id": record.category_id,
+                },
             }
         )
     return result
@@ -134,10 +141,17 @@ def read_record_by_date(
     session: Session, data: AccountingRecordDateRange, user_id: int
 ) -> list[AccountingRecordRead]:
     records = session.exec(
-        select(AccountingRecords, CategoryList.type.label("record_type"))
+        select(
+            AccountingRecords,
+            CategoryList.type.label("record_type"),
+            CategoryList.name,
+            CategoryList.icon_id,
+            StatList.color,
+        )
         .join(
             CategoryList, AccountingRecords.category_id == CategoryList.id, isouter=True
         )
+        .join(StatList, StatList.id == CategoryList.add_stats_id, isouter=True)
         .where(AccountingRecords.user_id == user_id)
         .where(AccountingRecords.expended_at <= data.ended_at)
         .where(AccountingRecords.expended_at >= data.started_at)
@@ -211,10 +225,17 @@ def _read_record_by_growing_status(
     user_id: int,
 ) -> list[AccountingRecordRead]:
     records = session.exec(
-        select(AccountingRecords, CategoryList.type.label("record_type"))
+        select(
+            AccountingRecords,
+            CategoryList.type.label("record_type"),
+            CategoryList.name,
+            CategoryList.icon_id,
+            StatList.color,
+        )
         .join(
             CategoryList, AccountingRecords.category_id == CategoryList.id, isouter=True
         )
+        .join(StatList, StatList.id == CategoryList.add_stats_id, isouter=True)
         .where(AccountingRecords.user_id == user_id)
         .where(AccountingRecords.period_id == period_id)
     ).all()
@@ -241,3 +262,21 @@ def read_current_growing_slime(
         ended_at=get_actual_end_date(period),
         need_complete=is_period_expired(period),
     )
+
+
+def remove_record(session: Session, user_id: int, record_id: int) -> None:
+    record = session.exec(
+        select(AccountingRecords)
+        .where(AccountingRecords.id == record_id)
+        .where(AccountingRecords.user_id == user_id)
+    ).first()
+
+    if record is None:
+        raise AppException(
+            status_code=404, error_code="E01003", detail="找不到這筆紀錄"
+        )
+
+    _replace_tags(session, record_id, set())
+    _replace_image(session, record_id, None)
+    session.delete(record)
+    session.commit()
